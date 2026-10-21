@@ -1,126 +1,152 @@
-Getting Started with Grafana Alerting: Complete Tutorial
-This tutorial walks you through setting up your first alert in Grafana, watching it fire with real-time data, and receiving alert notifications via a webhook.
+# Getting Started with Grafana Alerting: Complete Tutorial
 
-Tutorial Overview
-In this tutorial you will:
+A hands-on, step-by-step guide to configuring, evaluating, triggering, and resolving alerts in Grafana using a local Docker environment and webhook notifications.
 
-Create a contact point
+---
 
-Set up an alert rule
+## Table of Contents
+- [Overview](#overview)
+- [Prerequisites](#prerequisites)
+- [Quick Start: Running the Environment](#quick-start-running-the-environment)
+- [Step 1: Set Up a Contact Point (Webhook)](#step-1-set-up-a-contact-point-webhook)
+- [Step 2: Create an Alert Rule](#step-2-create-an-alert-rule)
+- [Step 3: Trigger the Alert](#step-3-trigger-the-alert)
+- [Step 4: Resolve the Alert](#step-4-resolve-the-alert)
+- [Troubleshooting](#troubleshooting)
+- [Next Steps](#next-steps)
 
-Receive firing and resolved alert notifications in a public webhook
+---
 
-After completing Part 1, explore the advanced (but essential) alerting topics in Multi-dimensional alerts and how to route them.
+## Overview
 
-Prerequisites: Download and Run the Tutorial Environment
-To demonstrate observing data using the Grafana stack, download and run the following files.
+In this tutorial, you will learn how to:
+1. Spin up a localized Grafana observability stack with Docker Compose.
+2. Configure a test **Contact Point** using an external webhook endpoint.
+3. Define an **Alert Rule** and configure evaluation settings (`pending period`, `evaluation interval`, and `keep firing for`).
+4. Observe real-time **Firing** and **Resolved** alert notification payloads.
 
-Step 1: Clone the tutorial environment repository
-bash
+---
+
+## Prerequisites
+
+Before starting, ensure you have the following installed on your machine:
+- [Git](https://git-scm.com/)
+- [Docker](https://www.docker.com/) and [Docker Compose](https://docs.docker.com/compose/)
+- An open browser tab with access to [Webhook.site](https://webhook.site/) (no account required)
+
+---
+
+## Quick Start: Running the Environment
+
+### 1. Clone the repository
+```bash
 git clone https://github.com/grafana/tutorial-environment.git
-Step 2: Change to the directory where you cloned the repository
-bash
 cd tutorial-environment
-Step 3: Run the Grafana stack
-bash
+```
+
+### 2. Start the stack
+```bash
 docker-compose up -d
-Note: The first time you run docker-compose up -d, Docker downloads all the necessary resources for the tutorial. This might take a few minutes, depending on your internet connection.
+```
 
-NOTE: If you already have Grafana, Loki, or Prometheus running on your system, you might see errors, because the Docker image is trying to use ports that your local installations are already using. If this is the case, stop the services, then run the command again.
+> **Note:** Initial startup may take a few minutes while Docker images are downloaded. 
+> 
+> *Port Conflict Tip:* If you already have Grafana (`3000`), Prometheus (`9090`), or Loki running locally, stop those services first to prevent port allocation errors.
 
-Step 1: Create a Contact Point
-Besides being an open-source observability tool, Grafana has its own built-in alerting service. This means you can receive notifications whenever there is an event of interest in your data, and even see these events graphed in your visualizations.
+### 3. Access Grafana
+Open your browser and navigate to:
+```
+http://localhost:3000
+```
+*(Default login credentials if prompted: username `admin` / password `admin`)*
 
-In this step, we set up a new contact point. This contact point uses the webhook integration. In order to make this work, we also need an endpoint for our webhook integration to receive the alert. We can use Webhook.site to quickly set up that test endpoint. This way we can make sure that our alert is actually sending a notification somewhere.
+---
 
-Configure the webhook endpoint
-In your browser, sign in to your Grafana Cloud account.
+## Step 1: Set Up a Contact Point (Webhook)
 
-OSS users: To log in, navigate to http://localhost:3000, where Grafana is running.
+Grafana Alerting uses **Contact Points** to route notifications when an alert condition fires or resolves.
 
-In another tab, go to Webhook.site.
+1. Open [Webhook.site](https://webhook.site/) in a separate browser tab.
+2. Copy your unique target URL (e.g., `https://webhook.site/#!/your-uuid...`). Keep this tab open.
+3. In Grafana, navigate to the left navigation bar, hover over **Alerting** (bell icon), and select **Contact points**.
+4. Click **+ New contact point**.
+5. Configure the contact point:
+   - **Name:** `Webhook`
+   - **Integration:** `Webhook`
+   - **URL:** Paste the unique URL copied from Webhook.site.
+6. Click **Test**, then select **Send test notification**.
+7. Return to your Webhook.site tab to verify that a `POST` request with the test payload has arrived.
+8. Back in Grafana, click **Save contact point**.
 
-Copy Your unique URL.
+---
 
-Your webhook endpoint is now waiting for the first request.
+## Step 2: Create an Alert Rule
 
-Configure the contact point in Grafana
-Next, let's configure a contact point in Grafana's Alerting UI to send notifications to our webhook endpoint.
+### Understanding Evaluation Settings
+- **Evaluation Interval:** How frequently the metric expression is calculated (e.g., `10s`, `1m`).
+- **Pending Period (`for`):** The duration an alert condition must continuously evaluate to true before switching from `Pending` to `Firing`. Setting this to `0s` fires the alert immediately.
+- **Keep Firing For:** How long the alert stays in `Firing` state after the condition ceases to be met. Helps eliminate "alert flapping" caused by noisy data.
 
-Return to Grafana. In Grafana's sidebar, hover over the Alerting (bell) icon and then click Contact points.
+### Setting Up the Rule
+1. In Grafana, navigate to **Alerting** > **Alert rules** > **+ New alert rule**.
+2. **Rule name & Folder:**
+   - Enter a name (e.g., `Tutorial Test Alert`).
+   - Create or choose a folder (e.g., `metric-alerts`).
+3. **Query and Condition:**
+   - Configure a condition designed to evaluate to true (for testing purposes, set an expression threshold lower than your test metric).
+4. **Evaluation Group:**
+   - **Group name:** `1m-evaluation`
+   - **Evaluation interval:** `1m`
+   - **Pending period:** `0s`
+   - **Keep firing for:** `0s`
+5. **Configure Notifications:**
+   - Under **Contact point**, select `Webhook`.
+6. Click **Save rule and exit** in the top right corner.
 
-Click + New contact point.
+---
 
-In Name, write Webhook.
+## Step 3: Trigger the Alert
 
-In Integration, choose Webhook.
+Because the alert was configured to trigger immediately:
+1. Wait for the evaluation interval (approximately 1 minute).
+2. Check your **Webhook.site** dashboard.
+3. Inspect the newly received `POST` request payload. It will include:
+   - **Status:** `firing`
+   - Metric values exceeding the threshold.
+   - Deep links to silence or view the rule in the Grafana UI.
 
-In URL, paste the endpoint to your webhook endpoint.
+---
 
-Click Test, and then click Send test notification to send a test alert to your webhook endpoint.
+## Step 4: Resolve the Alert
 
-Navigate back to Webhook.site. On the left side, there's now a POST / entry. Click it to see what information Grafana sent.
+To observe the alert transitioning to `Resolved`:
 
-(See alerting-webhook-detail.png in the tutorial)
+1. In Grafana, navigate to **Alerting** > **Alert rules**.
+2. Expand the `metric-alerts` folder and locate your alert.
+3. Click the **Edit** (pencil) icon.
+4. Increment the threshold condition so that the current metric value falls below it (no longer triggers).
+5. Click **Save rule and exit**.
+6. Wait for the next evaluation cycle (~1 minute).
+7. Return to **Webhook.site**. A new `POST` payload will appear with the status updated to:
+   ```json
+   "status": "resolved"
+   ```
 
-Return to Grafana and click Save contact point.
+---
 
-We have created a dummy Webhook endpoint and created a new Alerting contact point in Grafana. Now, we can create an alert rule and link it to this new integration.
+## Troubleshooting
 
-Step 2: Set Up an Alert Rule — Evaluation Settings
-Before configuring notifications, understand the evaluation settings:
+| Issue | Cause | Solution |
+| :--- | :--- | :--- |
+| `Bind for 0.0.0.0:3000 failed: port is already allocated` | Another Grafana instance or local process is bound to port 3000. | Stop the local service or change the host port binding in `docker-compose.yml`. |
+| Webhook endpoint receives no test notification | Invalid URL or firewall block. | Ensure the copied URL is the full Webhook.site target link and that your machine has internet access. |
+| Alert takes too long to fire | Non-zero `Pending period` configured. | Set the `Pending period` to `0s` for immediate evaluation during testing. |
 
-Evaluation interval: Determines how frequently the alert rule is checked. For instance, the evaluation may occur every 10s, 30s, 1m, 10m, etc.
+---
 
-Pending period: How long the condition must be met to trigger the alert rule.
+## Next Steps
 
-Keep firing for: Defines how long an alert should remain in the Firing state after the alert condition stops being true. During this time, the alert enters a Recovering state, suppressing additional notifications but keeping the alert active. It helps prevent alert flapping, where alerts rapidly switch between firing and resolved due to noisy or unstable metrics.
-
-To set up the evaluation:
-In the Evaluation group and interval, enter a name. For example: 1m-evaluation.
-
-Choose an Evaluation interval (how often the alerts are evaluated). For example, every 1m (1 minute).
-
-Set the pending period to 0s (zero seconds), so the alert rule fires the moment the condition is met.
-
-Set Keep firing for to 0s, so the alert stops firing immediately after the condition is no longer true. Use this when you want alerts to be resolved as soon as the system is healthy again.
-
-Step 3: Configure Notifications
-Choose the contact point where you want to receive your alert notifications.
-
-Under Contact point, select Webhook from the drop-down menu.
-
-Click Save rule and exit at the top right corner.
-
-Step 4: Trigger and Resolve an Alert
-Now that the alert rule has been configured, you should receive alert notifications in the contact point whenever alerts trigger and get resolved.
-
-Trigger an alert
-Since the alert rule that you have created has been configured to always fire, once the evaluation interval has concluded, you should receive an alert notification in the Webhook endpoint.
-
-(See alerting-webhook-firing-alert.png in the tutorial)
-
-The alert notification details show that the alert rule state is Firing, and it includes:
-
-The value that made the rule trigger by exceeding the threshold of the alert rule condition.
-
-Links to see the alert rule details.
-
-Another link to add a Silence to it.
-
-Resolve an alert
-To see how a resolved alert notification looks, you can modify the current alert rule threshold.
-
-To edit the Alert rule:
-
-Navigate to Alerting > Alert rules.
-
-Click on the metric-alerts folder to display the alert that you created earlier.
-
-Click the edit button on the right-hand side of the screen.
-
-Increment the Threshold expression to 1.
-
-Click Save rule and exit.
-
-By incrementing the threshold, the condition is no longer met, and after the evaluation interval has concluded (1 minute approx.), you should receive an alert notification with status "Resolved".
+Now that you have configured basic alert routing:
+- **Multi-dimensional Alerts:** Learn how alerting labels allow a single rule to track multiple series independently.
+- **Notification Policies:** Set up label matchers and routing trees to send critical alerts to PagerDuty or Slack while directing informational alerts to email or webhooks.
+- **Silences:** Learn how to temporarily suppress notifications during planned maintenance windows.
